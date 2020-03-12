@@ -1,0 +1,12 @@
+global proc CreateCentroidPivot () {
+    $obj = `ls -sl`;
+    $bb = `exactWorldBoundingBox $obj`;
+    $x = ($bb[0] + $bb[3]) / 2.0;
+    $y = ($bb[1] + $bb[4]) / 2.0;
+    $z = ($bb[2] + $bb[5]) / 2.0;
+    spaceLocator -p $x $y $z;
+    select -add $obj;
+    parent;
+    CenterPivot;
+    xform -cpc;
+}
