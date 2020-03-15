@@ -13,9 +13,13 @@ def maya_useNewAPI():
 class compositeCentroidNode(om.MPxNode):
     id = om.MTypeId(0x7f005)
     name = 'compositeCentroidNode'
-    inputPositionArray = om.MObject()
-    inputWeightArray = om.MObject()
+    inputArray = om.MObject()
 
+    # Child Attribute
+    inputWeight = om.MObject()
+    inputPosition = om.MObject()
+
+    # Output Attributes
     outputPosition = om.MObject()
     outputWeight = om.MObject()
 
@@ -38,69 +42,88 @@ class compositeCentroidNode(om.MPxNode):
         nAttr = om.MFnNumericAttribute()
         compositeCentroidNode.outputPosition = nAttr.create(
             'outputPosition', 'op', om.MFnNumericData.k3Float, 1.0)
-        compositeCentroidNode.addAttribute(compositeCentroidNode.outputPosition)
+        compositeCentroidNode.addAttribute(
+            compositeCentroidNode.outputPosition)
 
-        # input Weight Array
-        nAttr = om.MFnTypedAttribute()
-        compositeCentroidNode.inputWeightArray = nAttr.create(
-            'inputWeightArray', 'iweights', om.MfnData.kDoubleArray
-        )
-        compositeCentroidNode.addAttribute(compositeCentroidNode.inputWeightArray)
+        # input child
+        nAttr = om.MFnNumericAttribute()
+        compositeCentroidNode.inputWeight = nAttr.create(
+            "weight", "w", om.MFnNumericData.kFloat, 1)
+        nAttr.readable = True
+        nAttr = om.MFnNumericAttribute()
+        compositeCentroidNode.inputPosition = nAttr.create(
+            "position", "p", om.MFnNumericData.k3Float)
+        nAttr.readable = True
+
+        # input Array
+        cAttr = om.MFnCompoundAttribute()
+        compositeCentroidNode.inputArray = cAttr.create("inputArray", "ia")
+        cAttr.array = True
+        cAttr.addChild(compositeCentroidNode.inputWeight)
+        cAttr.addChild(compositeCentroidNode.inputPosition)
+        cAttr.readable = True
+        cAttr.usesArrayDataBuilder = True
+        compositeCentroidNode.addAttribute(compositeCentroidNode.inputArray)
         compositeCentroidNode.attributeAffects(
-            compositeCentroidNode.inputWeightArray, compositeCentroidNode.outputPosition
+            compositeCentroidNode.inputArray, compositeCentroidNode.outputPosition
         )
-
-        # input Position Array
-        nAttr = om.MFnTypedAttribute()
-        compositeCentroidNode.inputPositionArray = nAttr.create(
-            'inputPositionArray', 'ipos', om.MfnData.kPointArray
-        )
-        compositeCentroidNode.addAttribute(compositeCentroidNode.inputPositionArray)
-        compositeCentroidNode.attributeAffects(
-            compositeCentroidNode.inputPositionArray, compositeCentroidNode.outputPosition
-        )
-
 
     def compute(self, plug, dataBlock):
-        if(plug == compositeCentroidNode.outputPosition or plug == compositeCentroidNode.outputWeight):
-            # dataHandle.data(MObject)をPointArrayDataにして、PointArrayData.arrayで配列を取得
-            dataHandle = dataBlock.inputValue(compositeCentroidNode.inputPositionArray)
-            _ipdata = om.MFnPointArrayData(dataHandle.data())
-            ipoints = _ipdata.array()
-            dataHandle = dataBlock.inputValue(compositeCentroidNode.inputWeightArray)
-            _iwdata = om.MFnDoubleArrayData(dataHandle.data())
-            iweights = _iwdata.array()
+        arrayDataHandle = dataBlock.inputArrayValue(
+            compositeCentroidNode.inputArray
+        )
 
+        # sum of Weghts and Displacement * Weight.
+        sumW = 0
+        sumX = 0
+        sumY = 0
+        sumZ = 0
 
-            sumW = sum(iweights)
-            sumX = 0
-            sumY = 0
-            sumZ = 0
-            
-            for point in ipoints:
-                sumX += point.x
-                sumY += point.y
-                sumZ += point.z
+        for _i in range(len(arrayDataHandle)):
+            # now Value of Array DataHandle
+            v = arrayDataHandle.inputValue()
+            wHandle = v.child(compositeCentroidNode.inputWeight)
+            w = wHandle.asFloat()
+            pHandle = v.child(compositeCentroidNode.inputPosition)
+            p = pHandle.asFloat3()
 
+            sumW += w
+            sumX += p[0] * w
+            sumY += p[1] * w
+            sumZ += p[2] * w
+            # next Value of Array DataHandle
+            arrayDataHandle.next()
+
+        # calc each Displacement 
+        resX = 0
+        resY = 0
+        resZ = 0
+        if(sumW != 0):
             resX = sumX / sumW
             resY = sumY / sumW
             resZ = sumZ / sumW
-            
-            outHandle = dataBlock.outputValue(compositeCentroidNode.outputPosition)
-            outHandle.set3Float([resX,resY,resZ])
-            outHandle = dataBlock.outputValue(compositeCentroidNode.outputWeight)
-            outHandle.setFloat(sumW)
-            dataBlock.setClean(plug)
+
+        outhandle = dataBlock.outputValue(
+            compositeCentroidNode.outputPosition
+        )
+        outhandle.set3Float(resX, resY, resZ)
+        outhandle = dataBlock.outputValue(
+            compositeCentroidNode.outputWeight
+        )
+        outhandle.setFloat(sumW)
+        dataBlock.setClean(plug)
+
 
 def initializePlugin(obj):
     mplugin = om.MFnPlugin(obj)
     try:
         mplugin.registerNode(compositeCentroidNode.name, compositeCentroidNode.id,
-        compositeCentroidNode.creator, compositeCentroidNode.initialize, om.MPxNode.kDependNode)
+                             compositeCentroidNode.creator, compositeCentroidNode.initialize, om.MPxNode.kDependNode)
     except:
         sys.stderr.write('Failed to register node: %s' %
                          compositeCentroidNode.name)
         raise
+
 
 def uninitializePlugin(obj):
     mplugin = om.MFnPlugin(obj)
@@ -108,5 +131,5 @@ def uninitializePlugin(obj):
         mplugin.deregisterNode(compositeCentroidNode.id)
     except:
         sys.stderr.write('Failed to uninitialize node: %s' %
-                            compositeCentroidNode.name)
+                         compositeCentroidNode.name)
         pass
