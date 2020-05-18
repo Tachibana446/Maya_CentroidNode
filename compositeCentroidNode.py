@@ -35,7 +35,7 @@ class compositeCentroidNode(om.MPxNode):
         # output Weight
         nAttr = om.MFnNumericAttribute()
         compositeCentroidNode.outputWeight = nAttr.create(
-            'outputWeight', 'ow', om.MFnNumericData.kFloat, 1.0)
+            'outputWeight', 'ow', om.MFnNumericData.kFloat, 0.0)
         compositeCentroidNode.addAttribute(compositeCentroidNode.outputWeight)
 
         # output Position
@@ -48,7 +48,7 @@ class compositeCentroidNode(om.MPxNode):
         # input child
         nAttr = om.MFnNumericAttribute()
         compositeCentroidNode.inputWeight = nAttr.create(
-            "weight", "w", om.MFnNumericData.kFloat, 1)
+            "weight", "w", om.MFnNumericData.kFloat, 0)
         nAttr.readable = True
         nAttr = om.MFnNumericAttribute()
         compositeCentroidNode.inputPosition = nAttr.create(
@@ -59,6 +59,8 @@ class compositeCentroidNode(om.MPxNode):
         cAttr = om.MFnCompoundAttribute()
         compositeCentroidNode.inputArray = cAttr.create("inputArray", "ia")
         cAttr.array = True
+        cAttr.readable = False
+        cAttr.indexMatters = False
         cAttr.addChild(compositeCentroidNode.inputWeight)
         cAttr.addChild(compositeCentroidNode.inputPosition)
         cAttr.readable = True
